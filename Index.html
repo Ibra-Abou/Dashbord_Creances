@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard créances clients - Overdue Review</title>
+<style>
+:root{--bg:#f5f8ff;--card:rgba(255,255,255,.94);--border:#dbe3ef;--text:#172033;--muted:#64748b;--blue:#2563eb;--cyan:#06b6d4;--green:#16a34a;--red:#dc2626;--amber:#d97706;--shadow:0 16px 40px rgba(15,23,42,.09)}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#f8fbff,#eef6ff);color:var(--text)}
+header{padding:24px 32px;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}h1{margin:0;font-size:29px}.sub{color:var(--muted);margin-top:7px;line-height:1.5}.wrap{max-width:1500px;margin:auto;padding:24px 32px}.card{background:var(--card);border:1px solid var(--border);border-radius:22px;padding:16px;box-shadow:var(--shadow);margin-bottom:16px}.status{display:inline-flex;gap:8px;align-items:center;border-radius:999px;background:#ecfdf5;color:#166534;padding:8px 12px;font-weight:800}.status.err{background:#fff1f2;color:#991b1b}.status.warn{background:#fffbeb;color:#92400e}.btn{border:0;border-radius:12px;padding:11px 14px;background:var(--blue);color:white;font-weight:800;cursor:pointer}.btn.secondary{background:white;color:var(--blue);border:1px solid var(--border)}input,select,textarea{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:white;min-width:0}textarea{width:100%;min-height:120px;font-family:Consolas,monospace}.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}.label{font-size:11px;text-transform:uppercase;color:var(--muted);font-weight:900;letter-spacing:.03em}.value{font-size:25px;font-weight:900;margin-top:6px;color:#1d4ed8}.small{font-size:12px;color:var(--muted);margin-top:4px}.filters{display:grid;grid-template-columns:1.6fr 210px 190px 190px 190px 190px auto;gap:10px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}.bar{display:grid;grid-template-columns:180px 1fr 110px;gap:10px;align-items:center;margin:9px 0}.bar-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.track{height:12px;background:#e2e8f0;border-radius:99px;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,#2563eb,#06b6d4)}table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:9px 10px;border-top:1px solid #eef2f7;text-align:left;font-size:12.5px}th{background:#eef6ff;font-size:11px;text-transform:uppercase;color:#334155;position:sticky;top:0}.tablewrap{max-height:560px;overflow:auto;border:1px solid #eef2f7;border-radius:14px}.drop{border:2px dashed #93c5fd;background:#eff6ff;border-radius:16px;padding:18px;text-align:center;color:#1d4ed8;font-weight:800}.drop.drag{background:#dbeafe}.note{font-size:13px;color:var(--muted);line-height:1.5}.errbox{display:none;background:#fff1f2;border:1px solid #fecdd3;color:#991b1b;border-radius:14px;padding:12px;white-space:pre-wrap}.okbox{background:#ecfdf5;border:1px solid #bbf7d0;color:#166534;border-radius:14px;padding:12px;line-height:1.5}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2ff;color:#3730a3;font-weight:700;font-size:11px}.danger{background:#fee2e2;color:#991b1b}.good{background:#dcfce7;color:#166534}.warnb{background:#fef3c7;color:#92400e}.technical{font-family:Consolas,monospace;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px;margin-top:8px;color:#334155;word-break:break-all}@media(max-width:1250px){.kpis,.grid3{grid-template-columns:repeat(2,1fr)}.grid2,.filters{grid-template-columns:1fr}}@media(max-width:700px){.kpis{grid-template-columns:1fr}.wrap,header{padding-left:16px;padding-right:16px}}
+</style>
+</head>
+<body>
+<header><h1>Dashboard créances clients — Overdue Review</h1><div class="sub">Lecture forcée de la dernière version JSON à chaque ouverture : cache-busting unique + fetch no-store.</div></header>
+<div class="wrap">
+  <div class="card"><span id="status" class="status warn">Chargement JSON…</span><p class="note">Source principale : <b>data/overdue.json</b>. Le dashboard ajoute automatiquement un paramètre unique à chaque chargement pour éviter l’ancien JSON en cache.</p><div id="lastJsonUrl" class="technical">URL JSON appelée : —</div><div id="lastJsonRead" class="technical">Dernière lecture : —</div></div>
+  <div id="errorBox" class="errbox"></div>
+  <div class="card okbox"><b>Anti-cache appliqué :</b> URL unique à chaque ouverture, <code>cache: 'no-store'</code>, en-têtes <code>Cache-Control</code>, <code>Pragma</code> et <code>Expires</code>, plus métas HTML anti-cache.</div>
+
+  <div class="card">
+    <h2>Source JSON</h2>
+    <button class="btn" id="reloadJson">Recharger dernière version JSON</button>
+    <input id="fileInput" type="file" accept=".json,application/json,text/json">
+    <button class="btn secondary" id="resetData">Revenir au secours intégré</button>
+    <div id="dropZone" class="drop" style="margin-top:12px">Ou glissez-déposez votre fichier JSON ici</div>
+    <details style="margin-top:12px"><summary><b>Coller JSON manuellement</b></summary><textarea id="jsonText" placeholder="Collez ici le contenu JSON"></textarea><br><button class="btn" id="loadTextJson" style="margin-top:8px">Charger le texte JSON</button></details>
+  </div>
+
+  <div class="card filters">
+    <input id="search" placeholder="Recherche client, facture, commentaire…">
+    <select id="delegado"><option value="">Tous Delegado</option></select>
+    <select id="client"><option value="">Tous clients</option></select>
+    <select id="statusEom"><option value="">Tous Status EOM</option></select>
+    <select id="bucketEom"><option value="">Tous Buckets EOM</option></select>
+    <select id="rootcause"><option value="">Toutes Root causes</option></select>
+    <button class="btn secondary" id="clearFilters">Réinitialiser</button>
+  </div>
+
+  <section class="kpis">
+    <div class="card"><div class="label">Créances nettes</div><div id="kNet" class="value">—</div><div class="small">Somme Montant Pending</div></div>
+    <div class="card"><div class="label">Overdue EOM</div><div id="kOverdue" class="value">—</div><div class="small">Status EOM = Overdue</div></div>
+    <div class="card"><div class="label">Non échues EOM</div><div id="kNyd" class="value">—</div><div class="small">Status EOM = NYD</div></div>
+    <div class="card"><div class="label">Risque critique &gt;120</div><div id="kCritical" class="value">—</div><div class="small">Bucket ou retard EOM</div></div>
+    <div class="card"><div class="label">Clients</div><div id="kClients" class="value">—</div><div class="small">Clients distincts</div></div>
+    <div class="card"><div class="label">Factures</div><div id="kInvoices" class="value">—</div><div class="small">Factures distinctes</div></div>
+  </section>
+
+  <section class="grid2"><div class="card"><h2>Balance âgée fin du mois</h2><div id="chartBuckets"></div></div><div class="card"><h2>Classement Delegado</h2><div id="chartDelegado"></div></div></section>
+  <section class="grid3"><div class="card"><h2>Top clients à suivre</h2><div id="chartClients"></div></div><div class="card"><h2>Root causes</h2><div id="chartRoot"></div></div><div class="card"><h2>Status EOM</h2><div id="chartStatus"></div></div></section>
+  <section class="card"><h2>Détail factures</h2><div class="tablewrap"><table><thead><tr><th>Client</th><th>Facture</th><th>Delegado</th><th>Bucket EOM</th><th>Retard EOM</th><th>Montant</th><th>Root cause</th><th>Fecha Cobro</th><th>Commentaire</th></tr></thead><tbody id="tbody"></tbody></table></div><p class="note">Affichage limité aux 500 premières lignes filtrées pour conserver la fluidité du navigateur.</p></section>
+</div>
+<script>
+const EMBEDDED_DATA = [
+  {
+    "client": "2M BUREAUTIQUE",
+    "facture": "251601102632",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 9112320.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 69.0,
+    "retard": 67.0,
+    "bucket_eom": "Overdue<61-90 Days",
+    "bucket": "Overdue<61-90 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-09-29",
+    "date_echeance": "2025-08-24",
+    "type_piece": "AB",
+    "ligne": 2
+  },
+  {
+    "client": "2M BUREAUTIQUE",
+    "facture": "251601102756",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 110160.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 57.0,
+    "retard": 55.0,
+    "bucket_eom": "Overdue<31-60 Days",
+    "bucket": "Overdue<31-60 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-07-07",
+    "date_echeance": "2025-09-05",
+    "type_piece": "D1",
+    "ligne": 3
+  },
+  {
+    "client": "2M BUREAUTIQUE",
+    "facture": "251601102970",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 98280.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 39.0,
+    "retard": 37.0,
+    "bucket_eom": "Overdue<31-60 Days",
+    "bucket": "Overdue<31-60 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-07-25",
+    "date_echeance": "2025-09-23",
+    "type_piece": "D1",
+    "ligne": 4
+  },
+  {
+    "client": "2M BUREAUTIQUE",
+    "facture": "251601103308",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 3360.0,
+    "status_eom": "Overdue",
+    "status_actual": "NYD",
+    "retard_eom": 2.0,
+    "retard": 0.0,
+    "bucket_eom": "Overdue<1-7 Days",
+    "bucket": "NYD",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-08-31",
+    "date_echeance": "2025-10-30",
+    "type_piece": "D1",
+    "ligne": 5
+  },
+  {
+    "client": "2MH PACKAGING",
+    "facture": "251601103183",
+    "delegado": "Amine Sefiani",
+    "montant_pending": 2005.4,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 25.0,
+    "retard": 23.0,
+    "bucket_eom": "Overdue<8-30 Days",
+    "bucket": "Overdue<8-30 Days",
+    "rootcause": "Chasing",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-08-08",
+    "date_echeance": "2025-10-07",
+    "type_piece": "D1",
+    "ligne": 6
+  },
+  {
+    "client": "3C SARL",
+    "facture": "251601500002",
+    "delegado": "Amine Sefiani",
+    "montant_pending": 19344.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -41.0,
+    "retard": -43.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-10-13",
+    "date_echeance": "2025-12-12",
+    "type_piece": "D1",
+    "ligne": 7
+  },
+  {
+    "client": "A BELDI",
+    "facture": "251601103191",
+    "delegado": "Hicham Barouch",
+    "montant_pending": 36082.8,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -9.0,
+    "retard": -11.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-08-12",
+    "date_echeance": "2025-11-10",
+    "type_piece": "D1",
+    "ligne": 8
+  },
+  {
+    "client": "A.L.K INDUSTRIES",
+    "facture": "251601101290",
+    "delegado": "Hicham Barouch",
+    "montant_pending": 243.78,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 166.0,
+    "retard": 164.0,
+    "bucket_eom": "Overdue>120 Days",
+    "bucket": "Overdue>120 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-10-16",
+    "date_echeance": "2025-05-19",
+    "type_piece": "AB",
+    "ligne": 9
+  },
+  {
+    "client": "A.L.K INDUSTRIES",
+    "facture": "251601103304",
+    "delegado": "Hicham Barouch",
+    "montant_pending": 46095.24,
+    "status_eom": "Overdue",
+    "status_actual": "NYD",
+    "retard_eom": 2.0,
+    "retard": 0.0,
+    "bucket_eom": "Overdue<1-7 Days",
+    "bucket": "NYD",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-08-31",
+    "date_echeance": "2025-10-30",
+    "type_piece": "D1",
+    "ligne": 10
+  },
+  {
+    "client": "A.L.K INDUSTRIES",
+    "facture": "251601103565",
+    "delegado": "Hicham Barouch",
+    "montant_pending": 37879.56,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -22.0,
+    "retard": -24.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-09-24",
+    "date_echeance": "2025-11-23",
+    "type_piece": "D1",
+    "ligne": 11
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601101743",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 63400.55,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 133.0,
+    "retard": 131.0,
+    "bucket_eom": "Overdue>120 Days",
+    "bucket": "Overdue>120 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-10-16",
+    "date_echeance": "2025-06-21",
+    "type_piece": "AB",
+    "ligne": 12
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601101815",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 135240.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 131.0,
+    "retard": 129.0,
+    "bucket_eom": "Overdue>120 Days",
+    "bucket": "Overdue>120 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-04-24",
+    "date_echeance": "2025-06-23",
+    "type_piece": "D1",
+    "ligne": 13
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601102553",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 117020.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 76.0,
+    "retard": 74.0,
+    "bucket_eom": "Overdue<61-90 Days",
+    "bucket": "Overdue<61-90 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-06-18",
+    "date_echeance": "2025-08-17",
+    "type_piece": "D1",
+    "ligne": 14
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601102622",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 45396.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 71.0,
+    "retard": 69.0,
+    "bucket_eom": "Overdue<61-90 Days",
+    "bucket": "Overdue<61-90 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-06-23",
+    "date_echeance": "2025-08-22",
+    "type_piece": "D1",
+    "ligne": 15
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601102649",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 44430.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 69.0,
+    "retard": 67.0,
+    "bucket_eom": "Overdue<61-90 Days",
+    "bucket": "Overdue<61-90 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-06-25",
+    "date_echeance": "2025-08-24",
+    "type_piece": "D1",
+    "ligne": 16
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601102985",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 33916.1,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 39.0,
+    "retard": 37.0,
+    "bucket_eom": "Overdue<31-60 Days",
+    "bucket": "Overdue<31-60 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-07-25",
+    "date_echeance": "2025-09-23",
+    "type_piece": "D1",
+    "ligne": 17
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601103043",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 100499.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 33.0,
+    "retard": 31.0,
+    "bucket_eom": "Overdue<31-60 Days",
+    "bucket": "Overdue<31-60 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-07-31",
+    "date_echeance": "2025-09-29",
+    "type_piece": "D1",
+    "ligne": 18
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601103179",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 19110.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 25.0,
+    "retard": 23.0,
+    "bucket_eom": "Overdue<8-30 Days",
+    "bucket": "Overdue<8-30 Days",
+    "rootcause": "Chasing",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-08-08",
+    "date_echeance": "2025-10-07",
+    "type_piece": "D1",
+    "ligne": 19
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601103226",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 57330.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 21.0,
+    "retard": 19.0,
+    "bucket_eom": "Overdue<8-30 Days",
+    "bucket": "Overdue<8-30 Days",
+    "rootcause": "Chasing",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-08-12",
+    "date_echeance": "2025-10-11",
+    "type_piece": "D1",
+    "ligne": 20
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601103538",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 88400.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -20.0,
+    "retard": -22.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-09-22",
+    "date_echeance": "2025-11-21",
+    "type_piece": "D1",
+    "ligne": 21
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601103788",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 53040.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -38.0,
+    "retard": -40.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-10-10",
+    "date_echeance": "2025-12-09",
+    "type_piece": "D1",
+    "ligne": 22
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601103861",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 70720.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -44.0,
+    "retard": -46.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-10-16",
+    "date_echeance": "2025-12-15",
+    "type_piece": "D1",
+    "ligne": 23
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601103979",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 179192.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -52.0,
+    "retard": -54.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-10-24",
+    "date_echeance": "2025-12-23",
+    "type_piece": "D1",
+    "ligne": 24
+  },
+  {
+    "client": "A.Z.I SARL",
+    "facture": "251601104026",
+    "delegado": "ALAE MORABIT",
+    "montant_pending": 52360.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -57.0,
+    "retard": -59.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-10-29",
+    "date_echeance": "2025-12-28",
+    "type_piece": "D1",
+    "ligne": 25
+  },
+  {
+    "client": "AB-2 EXPORT",
+    "facture": "241601103704",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 28458.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 325.0,
+    "retard": 310.0,
+    "bucket_eom": "Overdue>120 Days",
+    "bucket": "Overdue>120 Days",
+    "rootcause": "Chasing",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-02-06",
+    "date_echeance": "2024-12-24",
+    "type_piece": "AB",
+    "ligne": 26
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601101576",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 65436.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 146.0,
+    "retard": 144.0,
+    "bucket_eom": "Overdue>120 Days",
+    "bucket": "Overdue>120 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-04-09",
+    "date_echeance": "2025-06-08",
+    "type_piece": "D1",
+    "ligne": 27
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601102255",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 8910.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 103.0,
+    "retard": 101.0,
+    "bucket_eom": "Overdue<91-120 Days",
+    "bucket": "Overdue<91-120 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-05-22",
+    "date_echeance": "2025-07-21",
+    "type_piece": "D1",
+    "ligne": 28
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601102289",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 6390.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 99.0,
+    "retard": 97.0,
+    "bucket_eom": "Overdue<91-120 Days",
+    "bucket": "Overdue<91-120 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-05-26",
+    "date_echeance": "2025-07-25",
+    "type_piece": "D1",
+    "ligne": 29
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601102781",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 42120.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 57.0,
+    "retard": 55.0,
+    "bucket_eom": "Overdue<31-60 Days",
+    "bucket": "Overdue<31-60 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-07-07",
+    "date_echeance": "2025-09-05",
+    "type_piece": "D1",
+    "ligne": 30
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601102816",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 32640.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 55.0,
+    "retard": 53.0,
+    "bucket_eom": "Overdue<31-60 Days",
+    "bucket": "Overdue<31-60 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-07-09",
+    "date_echeance": "2025-09-07",
+    "type_piece": "D1",
+    "ligne": 31
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601102984",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 57696.0,
+    "status_eom": "Overdue",
+    "status_actual": "Overdue",
+    "retard_eom": 39.0,
+    "retard": 37.0,
+    "bucket_eom": "Overdue<31-60 Days",
+    "bucket": "Overdue<31-60 Days",
+    "rootcause": "Promise",
+    "fecha_cobro": "Noviembre",
+    "commentaire": "",
+    "date_facture": "2025-07-25",
+    "date_echeance": "2025-09-23",
+    "type_piece": "D1",
+    "ligne": 32
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601103405",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 48000.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -6.0,
+    "retard": -8.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-09-08",
+    "date_echeance": "2025-11-07",
+    "type_piece": "D1",
+    "ligne": 33
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601103469",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 62672.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -10.0,
+    "retard": -12.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-09-12",
+    "date_echeance": "2025-11-11",
+    "type_piece": "D1",
+    "ligne": 34
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601103585",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 133650.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -23.0,
+    "retard": -25.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-09-25",
+    "date_echeance": "2025-11-24",
+    "type_piece": "D1",
+    "ligne": 35
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601103626",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 52290.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -27.0,
+    "retard": -29.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-09-29",
+    "date_echeance": "2025-11-28",
+    "type_piece": "D1",
+    "ligne": 36
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601103760",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 94620.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -37.0,
+    "retard": -39.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-10-09",
+    "date_echeance": "2025-12-08",
+    "type_piece": "D1",
+    "ligne": 37
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601103858",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 46080.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -44.0,
+    "retard": -46.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-10-16",
+    "date_echeance": "2025-12-15",
+    "type_piece": "D1",
+    "ligne": 38
+  },
+  {
+    "client": "ADAY PRIMEURS",
+    "facture": "251601103902",
+    "delegado": "Ghazzoune Saad",
+    "montant_pending": 122400.0,
+    "status_eom": "NYD",
+    "status_actual": "NYD",
+    "retard_eom": -48.0,
+    "retard": -50.0,
+    "bucket_eom": "NYD",
+    "bucket": "NYD",
+    "rootcause": "",
+    "fecha_cobro": "",
+    "commentaire": "",
+    "date_facture": "2025-10-20",
+    "date_echeance": "2025-12-19",
+    "type_piece": "D1",
+    "ligne": 39
+  }
+];
+let DATA = [];
+const fmt = new Intl.NumberFormat('fr-FR');
+const mad = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
+const bucketOrder = ['NYD','1-7','8-30','31-60','61-90','91-120','>120'];
+
+function cacheBuster() {
+  const randomPart = Math.random().toString(36).slice(2);
+  const perf = (window.performance && performance.now) ? String(performance.now()).replace('.', '') : '0';
+  return Date.now() + '-' + perf + '-' + randomPart;
+}
+function jsonUrl() { return 'data/overdue.json?nocache=' + encodeURIComponent(cacheBuster()); }
+function setStatus(text, type) { const s = document.getElementById('status'); if (s) { s.textContent = text; s.className = 'status ' + (type || ''); } }
+function showError(e) { const message = `ERREUR JAVASCRIPT / JSON :\n${e && e.message ? e.message : e}\n\n${e && e.stack ? e.stack : ''}`; const box = document.getElementById('errorBox'); if (box) { box.style.display = 'block'; box.textContent = message; } else { alert(message); } setStatus('Erreur JSON ou JavaScript', 'err'); }
+function clearError() { const box = document.getElementById('errorBox'); if (box) { box.style.display = 'none'; box.textContent = ''; } }
+function toNumber(v) { if (v === null || v === undefined || v === '') return 0; const n = Number(String(v).replace(/\s/g,'').replace(',', '.')); return isNaN(n) ? 0 : n; }
+function firstValue(d, keys, fallback) { for (const k of keys) { if (d[k] !== undefined && d[k] !== null && String(d[k]).trim() !== '') return d[k]; } return fallback || ''; }
+function normalizeRows(arr) { if (!Array.isArray(arr)) throw new Error('Le JSON doit être une liste : il doit commencer par [ et finir par ].'); return arr.map((d, i) => ({ client: String(firstValue(d, ['client','Client','Nom Client','Name'], '')), facture: String(firstValue(d, ['facture','Facture','N°Facture','Invoice'], '')), delegado: String(firstValue(d, ['delegado','Delegado','commercial','Commercial'], '')), montant: toNumber(firstValue(d, ['montant_pending','Montant Pending','amount','Amount','montant'], 0)), status_eom: String(firstValue(d, ['status_eom','Status EOM'], '')), status_actual: String(firstValue(d, ['status_actual','Status Actual'], '')), retard_eom: toNumber(firstValue(d, ['retard_eom','Retard Fin du mois'], 0)), bucket_eom: String(firstValue(d, ['bucket_eom','Buckets fin du mois'], '')), rootcause: String(firstValue(d, ['rootcause','Rootcause','Root Cause'], '')), fecha_cobro: String(firstValue(d, ['fecha_cobro','Fecha Cobro'], '')), commentaire: String(firstValue(d, ['commentaire','New Commnets','New Comments','comments','Comments'], '')), ligne: firstValue(d, ['ligne','Ligne'], i + 1) })); }
+function loadArray(arr, label) { clearError(); DATA = normalizeRows(arr); buildFilters(); render(); setStatus(`${label} : ${DATA.length} lignes`, ''); }
+async function loadJsonFromFile() {
+  try {
+    clearError(); setStatus('Chargement dernière version JSON…', 'warn');
+    const url = jsonUrl();
+    document.getElementById('lastJsonUrl').textContent = 'URL JSON appelée : ' + url;
+    const res = await fetch(url, { method: 'GET', cache: 'no-store', headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' } });
+    if (!res.ok) throw new Error(`Réponse HTTP ${res.status} - ${res.statusText}`);
+    const text = await res.text();
+    const parsed = JSON.parse(text);
+    document.getElementById('lastJsonRead').textContent = 'Dernière lecture : ' + new Date().toLocaleString('fr-FR') + ' — taille réponse : ' + text.length + ' caractères';
+    loadArray(parsed, 'Dernière version JSON chargée');
+  } catch(e) { showError(e); loadArray(EMBEDDED_DATA, 'Secours intégré chargé'); setStatus('Secours intégré chargé', 'warn'); }
+}
+function parseAndLoad(text, label) { const parsed = JSON.parse(text); loadArray(parsed, label); }
+function readFile(file) { if (!file) { showError(new Error('Aucun fichier sélectionné.')); return; } const reader = new FileReader(); reader.onload = function() { try { parseAndLoad(reader.result, 'JSON importé manuellement'); } catch(e) { showError(e); } }; reader.onerror = function() { showError(new Error('Impossible de lire le fichier sélectionné.')); }; reader.readAsText(file, 'utf-8'); }
+function uniq(a) { return [...new Set(a.filter(x => x !== undefined && x !== null && String(x).trim() !== ''))].sort((a,b) => String(a).localeCompare(String(b),'fr')); }
+function fillSelect(id, values) { const el=document.getElementById(id); const first=el.options[0].textContent; el.innerHTML='<option value="">'+first+'</option>'; values.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);}); }
+function buildFilters() { fillSelect('delegado', uniq(DATA.map(d=>d.delegado))); fillSelect('client', uniq(DATA.map(d=>d.client))); fillSelect('statusEom', uniq(DATA.map(d=>d.status_eom))); fillSelect('bucketEom', uniq(DATA.map(d=>d.bucket_eom))); fillSelect('rootcause', uniq(DATA.map(d=>d.rootcause))); }
+function filtered() { const q=document.getElementById('search').value.toLowerCase().trim(); const de=document.getElementById('delegado').value; const cl=document.getElementById('client').value; const st=document.getElementById('statusEom').value; const bu=document.getElementById('bucketEom').value; const ro=document.getElementById('rootcause').value; return DATA.filter(d => (!de||d.delegado===de) && (!cl||d.client===cl) && (!st||d.status_eom===st) && (!bu||d.bucket_eom===bu) && (!ro||d.rootcause===ro) && (!q||[d.client,d.facture,d.delegado,d.rootcause,d.commentaire,d.status_eom,d.bucket_eom].join(' ').toLowerCase().includes(q))); }
+function sum(rows, pred) { return rows.filter(pred || (()=>true)).reduce((s,d)=>s+d.montant,0); }
+function isOverdue(d) { return String(d.status_eom).toLowerCase().includes('overdue'); }
+function isNYD(d) { const s=String(d.status_eom).toLowerCase(); return s === 'nyd' || s.includes('not yet') || s.includes('non'); }
+function isCritical(d) { return String(d.bucket_eom).includes('120') || d.retard_eom > 120; }
+function group(rows,key,amountMode) { const m={}; rows.forEach(d=>{const k=d[key]||'Non renseigné'; m[k]=(m[k]||0)+(amountMode?d.montant:1);}); return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,14); }
+function groupBucket(rows, amountMode) { const m={}; rows.forEach(d=>{const k=d.bucket_eom||'Non renseigné'; m[k]=(m[k]||0)+(amountMode?d.montant:1);}); return Object.entries(m).sort((a,b)=>{let ia=bucketOrder.findIndex(x=>String(a[0]).includes(x)); let ib=bucketOrder.findIndex(x=>String(b[0]).includes(x)); if(ia<0)ia=99;if(ib<0)ib=99;return ia-ib;}); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+function bars(id, entries, amountMode) { const node=document.getElementById(id); node.innerHTML=''; const max=Math.max(...entries.map(e=>e[1]),1); entries.forEach(function(item) { const lab=item[0]; const val=item[1]; const row=document.createElement('div'); row.className='bar'; row.innerHTML='<div class="bar-label" title="'+esc(lab)+'">'+esc(lab)+'</div><div class="track"><div class="fill" style="width:'+Math.round(val/max*100)+'%"></div></div><div><b>'+(amountMode?mad.format(val):fmt.format(val))+'</b></div>'; node.appendChild(row); }); if(!entries.length) node.innerHTML='<span class="note">Aucune donnée</span>'; }
+function badgeClass(v) { const s=String(v).toLowerCase(); if(s.includes('overdue') || s.includes('120')) return 'badge danger'; if(s.includes('nyd')) return 'badge good'; return 'badge warnb'; }
+function render() { const rows=filtered(); const total=sum(rows); const amountMode = total !== 0; document.getElementById('kNet').textContent = mad.format(total); document.getElementById('kOverdue').textContent = mad.format(sum(rows,isOverdue)); document.getElementById('kNyd').textContent = mad.format(sum(rows,isNYD)); document.getElementById('kCritical').textContent = mad.format(sum(rows,isCritical)); document.getElementById('kClients').textContent = fmt.format(new Set(rows.map(d=>d.client)).size); document.getElementById('kInvoices').textContent = fmt.format(new Set(rows.map(d=>d.facture)).size); bars('chartBuckets', groupBucket(rows, amountMode), amountMode); bars('chartDelegado', group(rows,'delegado',amountMode), amountMode); bars('chartClients', group(rows,'client',amountMode), amountMode); bars('chartRoot', group(rows,'rootcause',amountMode), amountMode); bars('chartStatus', group(rows,'status_eom',amountMode), amountMode); const tb=document.getElementById('tbody'); tb.innerHTML=''; rows.slice(0,500).forEach(function(d){ const tr=document.createElement('tr'); tr.innerHTML='<td>'+esc(d.client)+'</td><td>'+esc(d.facture)+'</td><td>'+esc(d.delegado)+'</td><td><span class="'+badgeClass(d.bucket_eom)+'">'+esc(d.bucket_eom)+'</span></td><td>'+fmt.format(d.retard_eom)+'</td><td>'+mad.format(d.montant)+'</td><td>'+esc(d.rootcause)+'</td><td>'+esc(d.fecha_cobro)+'</td><td>'+esc(d.commentaire)+'</td>'; tb.appendChild(tr); }); }
+
+document.getElementById('reloadJson').addEventListener('click', loadJsonFromFile);
+document.getElementById('fileInput').addEventListener('change', e => readFile(e.target.files[0]));
+document.getElementById('resetData').addEventListener('click', () => loadArray(EMBEDDED_DATA, 'Secours intégré chargé'));
+document.getElementById('loadTextJson').addEventListener('click', function() { try { parseAndLoad(document.getElementById('jsonText').value, 'JSON collé chargé'); } catch(e) { showError(e); } });
+document.getElementById('clearFilters').addEventListener('click', function() { ['search','delegado','client','statusEom','bucketEom','rootcause'].forEach(id=>document.getElementById(id).value=''); render(); });
+const dz=document.getElementById('dropZone'); ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');})); ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');})); dz.addEventListener('drop', e=>readFile(e.dataTransfer.files[0]));
+['search','delegado','client','statusEom','bucketEom','rootcause'].forEach(id=>document.getElementById(id).addEventListener('input', render));
+loadJsonFromFile();
+</script>
+</body>
+</html>
